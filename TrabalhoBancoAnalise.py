@@ -12,6 +12,10 @@ df = pd.read_csv(filename)
 
 df.info()
 
+#Verificando se há dados ausentes
+missing_data = ((df.isnull().sum() / df.shape[0]) * 100).sort_values(ascending=False)
+print(missing_data)
+
 #Verificando valores ausentes e mostrando as linhas com valores ausentes
 
 print(df[df.isnull().any(axis=1)])
@@ -45,5 +49,10 @@ for col in numeric_cols:
   plt.grid(True)
   plt.tight_layout()
   plt.show()
+
+
+
+  
+  # ITS A BEAUTIFUL DAY FOR PIE
 
 #PARA VER OS GRAFICOS, ABRA A ABA VNC DO REPLIT
