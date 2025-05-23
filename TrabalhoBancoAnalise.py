@@ -1,6 +1,4 @@
 #Bibliotecas usadas
-import matplotlib
-matplotlib.use('TkAgg')  # Set backend before importing pyplot
 
 import pandas as pd
 import numpy as np
