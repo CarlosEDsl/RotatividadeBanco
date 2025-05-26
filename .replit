@@ -5,15 +5,3 @@ packages = ["cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "
 
 [deployment]
 run = ["sh", "-c", "python TrabalhoBancoAnalise.py"]
-
-[workflows]
-runButton = "Run Analysis"
-
-[[workflows.workflow]]
-name = "Run Analysis"
-author = 42709744
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python TrabalhoBancoAnalise.py"

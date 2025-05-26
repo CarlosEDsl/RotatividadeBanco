@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import AuxFunctions as aux
+from scipy import stats
 
 pd.set_option('display.max_columns', None)
 filename = "06_rotatividade_clientes_bancários.csv"
@@ -29,7 +30,16 @@ print(f'\033[93m\nOs tipos dos atributos são do tipo:\n{df.dtypes}\033[0m')
 missing_data = ((df.isnull().sum() / df.shape[0]) * 100).sort_values(ascending=False)
 print(f'\033[91m\nDados faltando no dataset em porcentagem: \n{missing_data}\033[0m')
 
+null_counts = df.isnull().sum()
+tabela_nulos = pd.DataFrame({'Variável': null_counts.index,
+                              'Quantidade de Nulos': null_counts.values})
+
+print('\n\033[94mQuantidade de Dados Nulos por Variável:\033[0m\n')
+print(tabela_nulos.to_string(index=False))
+
 # Verificando valores ausentes e mostrando as linhas com valores ausentes
+
+print('\n\033[94mLinhas com valores nulos:\033[0m\n')
 
 print(df[df.isnull().any(axis=1)])
 
@@ -57,7 +67,7 @@ print(f"\033[96m\n\nVerificando valores booleanos se estão integros (0 ou 1)\03
 boolean_cols = ['HasCrCard', 'IsActiveMember', 'Exited']
 for col in boolean_cols:
   print(f"\033[93m{col} - Diferente de 1 e 0: {((df[col] != 0) & (df[col] != 1)).sum()}\033[0m")
-    
+
 print(f"\033[96m\n\nVerificando Valores específicos\033[0m")
 s_cols = ['Geography', 'Gender']
 for col in s_cols:
@@ -85,11 +95,65 @@ print(f"\033[92m\n Encontramos alguns outliers nas idades, contudo são idades r
 print(f"\033[91m\n Derrubando linhas duplicadas, total: {df.duplicated().sum()}\n\033[0m")
 df = df.drop_duplicates()
 
+
+
+
+
+
+
+
+
+# !!!!!!Análise Estatística!!!!!!
+medianas = df.median(numeric_only=True)
+print("\nMedianas das variáveis numéricas:\n")
+print(medianas)
+
+# Percentual de clientes presentes no banco (Variavel principal)
+percentual = df['Exited'].value_counts(normalize=True) * 100
+print("\nDistribuição percentual da variável Exited:\n")
+print(percentual)
+
+# Criando faixas etárias
+bins = [18, 30, 45, 60, 100]
+labels = ['18-29', '30-44', '45-59', '60+']
+df['Age_Group'] = pd.cut(df['Age'], bins=bins, labels=labels, right=False)
+
+# Taxa de churn por faixa etária
+churn_rate_age = df.groupby('Age_Group')['Exited'].mean().reset_index()
+print("\nTaxa de Churn por Faixa Etária:\n", churn_rate_age)
+
+# Correlação entre Idade e Exited
+correlation_age_exited = df['Age'].corr(df['Exited'])
+print(f"\nCorrelação entre Idade e Exited: {correlation_age_exited:.3f}")
+
+# 1️⃣ Criar a tabela de contingência
+contingencia = pd.crosstab(df['Geography'], df['Exited'])
+
+print("Tabela de Contingência:\n", contingencia)
+
+# 2️⃣ Aplicar o teste qui-quadrado
+chi2, p, dof, expected = chi2_contingency(contingencia)
+
+print(f"\nResultado do Teste Qui-Quadrado:")
+print(f"Chi2: {chi2}")
+print(f"P-valor: {p}")
+print(f"Grau de liberdade: {dof}")
+print(f"Frequências esperadas:\n{expected}")
+
+# 3️⃣ Interpretar
+alpha = 0.05  # nível de significância de 5%
+
+if p < alpha:
+    print("\n✅ Existe uma associação significativa entre Geography e Exited.")
+else:
+    print("\n❌ Não há evidência de associação significativa entre Geography e Exited.")
+
 # Gerando os histogramas e boxplots com seaborn
 numeric_cols = ['CreditScore', 'Age', 'Tenure', 'Balance',
                 'NumOfProducts', 'HasCrCard', 'IsActiveMember',
                 'EstimatedSalary', 'Exited']
 
+#Histogramas
 for col in numeric_cols:
     plt.figure(figsize=(8, 4))
     sns.histplot(df[col], kde=True, bins=30, color='skyblue')
@@ -100,6 +164,7 @@ for col in numeric_cols:
     plt.tight_layout()
     plt.show()
 
+#Boxplots
 for col in numeric_cols:
     plt.figure(figsize=(8, 4))
     sns.boxplot(x=df[col], color='lightcoral')
@@ -109,22 +174,120 @@ for col in numeric_cols:
     plt.tight_layout()
     plt.show()
 
+#Heatmap
+plt.figure(figsize=(10, 8))
+correlation = df[numeric_cols].corr()
+
+sns.heatmap(correlation, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Mapa de Correlação')
+plt.show()
+
+#Analisando variavel principal
+plt.figure(figsize=(6, 4))
+sns.countplot(x='Exited', data=df, palette='pastel')
+plt.title('Distribuição da Variável Alvo - Exited')
+plt.xlabel('Exited (0 = Permaneceu, 1 = Saiu)')
+plt.ylabel('Quantidade')
+plt.grid(True)
+plt.show()
+
+# Análise Bivariada: Variáveis Numéricas vs. Exited
+print("\n\033[94mAnálise Bivariada: Variáveis Numéricas vs Exited\033[0m\n")
+numeric_cols_no_exited = ['CreditScore', 'Age', 'Tenure', 'Balance', 'NumOfProducts', 'EstimatedSalary']
+for col in numeric_cols_no_exited:
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(x='Exited', y=col, data=df, palette='viridis')
+    plt.title(f'Boxplot de {col} por Exited')
+    plt.xlabel('Exited (0 = Permaneceu, 1 = Saiu)')
+    plt.ylabel(col)
+    plt.grid(True)
+    plt.show()
+
+# Análise Bivariada: Variáveis de categoria vs. Exited
+print("\n\033[94mAnálise Bivariada: Variáveis de Categoria vs Exited\033[0m\n")
+categorical_cols = ['Geography', 'Gender']
+for col in categorical_cols:
+    # Gráfico de barras empilhadas (contagem)
+    plt.figure(figsize=(10, 6))
+    sns.countplot(x=col, hue='Exited', data=df, palette='pastel')
+    plt.title(f'Contagem de Exited por {col}')
+    plt.xlabel(col)
+    plt.ylabel('Contagem')
+    plt.legend(title='Exited', labels=['Permaneceu', 'Saiu'])
+    plt.grid(axis='y')
+    plt.show()
+
+    # Gráfico de barras de proporção
+    churn_rate = df.groupby(col)['Exited'].mean().reset_index()
+    plt.figure(figsize=(8, 5))
+    sns.barplot(x=col, y='Exited', data=churn_rate, palette='rocket')
+    plt.title(f'Taxa de Churn por {col}')
+    plt.xlabel(col)
+    plt.ylabel('Taxa de Churn')
+    plt.ylim(0, 1)
+    plt.grid(axis='y')
+    plt.show()
 
 
+# !!!!!!!!!!!!!!!HIPOTESES!!!!!!!!!!!!!!!!!
+# 1- Clientes na faixa dos 49-60 anos tem maior probabilidade de sair do banco.
+# 2- Clientes que residem na alemanha tem maior probabilidade de sair do banco.
+paises = df['Geography'].unique()
+num_paises = len(paises)
+cols = 2
+rows = (num_paises + 1) // cols
+
+plt.figure(figsize=(cols * 6, rows * 6))
+for i, pais in enumerate(paises, 1):
+    df_pais = df[df['Geography'] == pais]
+    counts = df_pais['Exited'].value_counts().sort_index()
+    counts = counts.reindex([0, 1], fill_value=0)
+    labels = ['Ativo', 'Inativo']
+    explode = [0, 0.1]  # destaca inativos
+
+    plt.subplot(rows, cols, i)
+    plt.pie(counts, labels=labels, autopct='%1.1f%%',
+            colors=sns.color_palette('pastel')[:2],
+            explode=explode, shadow=True)
+    plt.title(f'Clientes Ativos vs Inativos - {pais}')
+plt.tight_layout()
+plt.show()
+
+# --- 2. Cálculo da taxa de churn por país ---
+
+total_por_pais = df['Geography'].value_counts()
+churn_por_pais = df[df['Exited'] == 1]['Geography'].value_counts()
+taxa_churn = churn_por_pais / total_por_pais
+
+print("Taxa de churn por país:")
+print(taxa_churn)
+
+# --- 3. Visualização comparativa da taxa de churn ---
+
+taxa_churn_sorted = taxa_churn.sort_values(ascending=False)
+
+plt.figure(figsize=(8,5))
+sns.barplot(x=taxa_churn_sorted.index, y=taxa_churn_sorted.values, palette='pastel')
+plt.ylabel('Taxa de Churn')
+plt.title('Taxa de Churn por País')
+plt.ylim(0, taxa_churn_sorted.max() + 0.05)
+plt.show()
+
+# --- 4. Teste de hipótese:
+
+contingencia = pd.crosstab(df['Geography'], df['Exited'])
+quiQuadrada(contingencia)
+
+# 3- Pessoas inativas têm uma chance maior de sair
+
+#!!!!!!!!!!!!!!!!!!!ANÁLISE PREDITIVA!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# 2 
 
 # ITS A BEAUTIFUL DAY FOR PIE
 
-print("\n\033[92m✅ Análise concluída com sucesso!\033[0m")
-print("\033[93m📊 Para visualizar os gráficos, abra a aba VNC do Replit.\033[0m")
-print("\033[96m🔄 Mantendo aplicação ativa...\033[0m")
+
+
+
 
 # PARA VER OS GRAFICOS, ABRA A ABA VNC DO REPLIT
-
-# Mantém a aplicação rodando para evitar recovery mode
-import time
-try:
-    while True:
-        time.sleep(30)  # Aguarda 30 segundos
-        print(f"\033[90m⏰ Aplicação rodando... {pd.Timestamp.now().strftime('%H:%M:%S')}\033[0m")
-except KeyboardInterrupt:
-    print("\n\033[91m⏹️ Aplicação finalizada.\033[0m")
