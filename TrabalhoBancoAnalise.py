@@ -114,8 +114,17 @@ for col in numeric_cols:
 
 # ITS A BEAUTIFUL DAY FOR PIE
 
-
-
-
+print("\n\033[92m✅ Análise concluída com sucesso!\033[0m")
+print("\033[93m📊 Para visualizar os gráficos, abra a aba VNC do Replit.\033[0m")
+print("\033[96m🔄 Mantendo aplicação ativa...\033[0m")
 
 # PARA VER OS GRAFICOS, ABRA A ABA VNC DO REPLIT
+
+# Mantém a aplicação rodando para evitar recovery mode
+import time
+try:
+    while True:
+        time.sleep(30)  # Aguarda 30 segundos
+        print(f"\033[90m⏰ Aplicação rodando... {pd.Timestamp.now().strftime('%H:%M:%S')}\033[0m")
+except KeyboardInterrupt:
+    print("\n\033[91m⏹️ Aplicação finalizada.\033[0m")
