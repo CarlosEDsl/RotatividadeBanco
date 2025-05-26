@@ -6,5 +6,6 @@
     pkgs.python310Packages.numpy
     pkgs.python310Packages.matplotlib
     pkgs.python310Packages.seaborn
+    pkgs.python310Packages.scipy_
   ];
 }
