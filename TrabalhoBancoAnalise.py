@@ -9,8 +9,9 @@ from scipy import stats
 from statsmodels.stats.proportion import proportions_ztest
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 from math import sqrt
+
 
 def detectar_outliers_iqr(df, coluna):
   Q1 = df[coluna].quantile(0.25)
@@ -399,14 +400,35 @@ print(f"RMSE da Regressão Simples (Age → Exited): {rmse_simple:.4f}")
 print(f"Intercepto: {model_simple.intercept_}")
 print(f"Coeficiente de Age: {model_simple.coef_[0]}")
 
-
-
-
-# ITS A BEAUTIFUL DAY FOR PIE
-
 #!!!!!!!!!!!!!REGRESSAO LINEAR MULTIPLA!!!!!!!!!!!!!
+df['IsGermany'] = (df['Geography'] == 'Germany').astype(int)
+df = pd.get_dummies(df, columns=['Gender'], drop_first=True) # Cria 'Gender_Male'
 
+X_multi = df[['Age', 'IsActiveMember', 'Gender_Male', 'IsGermany']]
+y = df['Exited']
 
+X_train_m, X_test_m, y_train_m, y_test_m = train_test_split(X_multi, y, test_size=0.2, random_state=42)
 
+model_multi = LinearRegression()
+model_multi.fit(X_train_m, y_train_m)
+
+y_pred_m = model_multi.predict(X_test_m)
+
+rmse_multi = sqrt(mean_squared_error(y_test_m, y_pred_m))
+r2_multi = r2_score(y_test_m, y_pred_m)
+
+print("=== Resultados da Regressão Linear Múltipla (Scikit-learn) ===")
+print(f"RMSE (Erro Médio Quadrático): {rmse_multi:.4f}")
+print(f"R² (Coeficiente de Determinação): {r2_multi:.4f}")
+
+plt.figure(figsize=(7, 6))
+plt.scatter(y_test_m, y_pred_m, alpha=0.7, color='green')
+plt.plot([y_test_m.min(), y_test_m.max()], [y_test_m.min(), y_test_m.max()], 'k--', lw=2)
+plt.xlabel('Exited Real (0 ou 1)')
+plt.ylabel('Exited Previsto (Probabilidade)')
+plt.title(f'Regressão Múltipla\n$R^2$ = {r2_multi:.2f}')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
 # PARA VER OS GRAFICOS, ABRA A ABA VNC DO REPLIT
