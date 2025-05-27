@@ -4,11 +4,51 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import AuxFunctions as aux
+from scipy.stats import chi2_contingency
 from scipy import stats
+from statsmodels.stats.proportion import proportions_ztest
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+from math import sqrt
+
+def detectar_outliers_iqr(df, coluna):
+  Q1 = df[coluna].quantile(0.25)
+  Q3 = df[coluna].quantile(0.75)
+  IQR = Q3 - Q1
+  limite_inferior = Q1 - 1.5 * IQR
+  limite_superior = Q3 + 1.5 * IQR
+  outliers = df[(df[coluna] < limite_inferior) | (df[coluna] > limite_superior)]
+  return outliers
+
+def shapiro(amostra):
+    stat, p = stats.shapiro(amostra)
+    print(f"Shapiro-Wilk: Estatística={stat:.4f}, p-value={p:.4f}")
+    print("Os dados são normais?", "Sim" if p > 0.05 else "Não")
+
+def quiQuadrada(contigencia):
+  # Criar a tabela de contingência
+  print("Tabela de Contingência:\n", contingencia)
+
+  # Aplicar o teste qui-quadrado
+  chi2, p, dof, expected = stats.chi2_contingency(contingencia)
+
+  print(f"\nResultado do Teste Qui-Quadrado:")
+  print(f"Chi2: {chi2}")
+  print(f"P-valor: {p}")
+  print(f"Grau de liberdade: {dof}")
+  print(f"Frequências esperadas:\n{expected}")
+
+  # Interpretar
+  alpha = 0.05  # nível de significância de 5%
+
+  if p < alpha:
+      print("\nExiste uma associação significativa entre Geography e Exited.")
+  else:
+      print("\nNão há evidência de associação significativa entre Geography e Exited.")
 
 pd.set_option('display.max_columns', None)
-filename = "06_rotatividade_clientes_bancários.csv"
+filename = "/content/drive/MyDrive/Analise/06_rotatividade_clientes_bancários.csv"
 
 
 df = pd.read_csv(filename, header=0)
@@ -79,7 +119,7 @@ print(df.head())
 colunas_outliers = ['CreditScore', 'Age', 'Balance', 'EstimatedSalary']
 print(f"\033[96m\n\nVerificando outliers nas colunas {colunas_outliers}\033[0m")
 for col in colunas_outliers:
-  outliers = aux.detectar_outliers_iqr(df, col)
+  outliers = detectar_outliers_iqr(df, col)
   tabela_outliers = pd.DataFrame({
       'ID': outliers.index,
       col: outliers[col]
@@ -126,27 +166,6 @@ print("\nTaxa de Churn por Faixa Etária:\n", churn_rate_age)
 correlation_age_exited = df['Age'].corr(df['Exited'])
 print(f"\nCorrelação entre Idade e Exited: {correlation_age_exited:.3f}")
 
-# 1️⃣ Criar a tabela de contingência
-contingencia = pd.crosstab(df['Geography'], df['Exited'])
-
-print("Tabela de Contingência:\n", contingencia)
-
-# 2️⃣ Aplicar o teste qui-quadrado
-chi2, p, dof, expected = chi2_contingency(contingencia)
-
-print(f"\nResultado do Teste Qui-Quadrado:")
-print(f"Chi2: {chi2}")
-print(f"P-valor: {p}")
-print(f"Grau de liberdade: {dof}")
-print(f"Frequências esperadas:\n{expected}")
-
-# 3️⃣ Interpretar
-alpha = 0.05  # nível de significância de 5%
-
-if p < alpha:
-    print("\n✅ Existe uma associação significativa entre Geography e Exited.")
-else:
-    print("\n❌ Não há evidência de associação significativa entre Geography e Exited.")
 
 # Gerando os histogramas e boxplots com seaborn
 numeric_cols = ['CreditScore', 'Age', 'Tenure', 'Balance',
@@ -231,7 +250,46 @@ for col in categorical_cols:
 
 # !!!!!!!!!!!!!!!HIPOTESES!!!!!!!!!!!!!!!!!
 # 1- Clientes na faixa dos 49-60 anos tem maior probabilidade de sair do banco.
+
+# --- 1 Histograma mostrando a distribuição das idades ---
+#Separando a faixa etaria
+bins = [0, 30, 40, 49, 60, 70, 100]
+labels = ['<30', '30-39', '40-48', '49-60', '61-70', '71+']
+df['FaixaEtariaAgrupada'] = pd.cut(df['Age'], bins=bins, labels=labels, right=True)
+
+churn_por_faixa = df.groupby('FaixaEtariaAgrupada')['Exited'].mean().reset_index()
+
+#Criando o histograma
+plt.figure(figsize=(10, 6))
+sns.barplot(x='FaixaEtariaAgrupada', y='Exited', data=churn_por_faixa, palette='rocket')
+plt.title('Taxa de Churn por Faixa Etária')
+plt.xlabel('Faixa Etária')
+plt.ylabel('Taxa de Churn (Proporção de Clientes que Saíram)')
+plt.ylim(0, 0.7)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+
+# --- 2. Teste de hipótese, porcentagem de clientes que sairam de cada gupo etario ---
+churn_por_faixa = df.groupby('FaixaEtariaAgrupada')['Exited'].mean().reset_index()
+
+print("Porcentagem de Churn por Faixa Etária:")
+print(churn_por_faixa)
+
+# ---3 Teste Qui Quadrado, para ver se existe associação entre a faixa etária e o churn ---
+chi2, p_value, dof, expected = chi2_contingency(contingency_table)
+
+print(f"Valor Chi-quadrado: {chi2:.4f}")
+print(f"Valor p: {p_value:.4f}")
+
+alpha = 0.05
+if p_value < alpha:
+    print("Existe uma associação estatisticamente significativa entre a faixa etária e o churn.")
+else:
+    print("Não há uma associação estatisticamente significativa entre a faixa etária e o churn.")
+
 # 2- Clientes que residem na alemanha tem maior probabilidade de sair do banco.
+
 paises = df['Geography'].unique()
 num_paises = len(paises)
 cols = 2
@@ -278,14 +336,59 @@ plt.show()
 contingencia = pd.crosstab(df['Geography'], df['Exited'])
 quiQuadrada(contingencia)
 
+
 # 3- Pessoas inativas têm uma chance maior de sair
 
-#!!!!!!!!!!!!!!!!!!!ANÁLISE PREDITIVA!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#Histograma mostrando que mais de 25% dos inativos sairam e menos de 15% dos ativos sairam
+plt.figure(figsize=(8, 6))
+sns.barplot(x='IsActiveMember', y='Exited', data=churn_rate_by_activity, palette='viridis')
+plt.title('Taxa de Rotatividade por Status de Atividade do Cliente')
+plt.xlabel('Status de Atividade do Cliente')
+plt.ylabel('Taxa de Rotatividade (Proporção de Exited = 1)')
+plt.ylim(0, churn_rate_by_activity['Exited'].max() * 1.2)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
 
-# 2 
+#TESTE Z PARA PROPORÇÕES
+churn_counts = df.groupby(['IsActiveMember', 'Exited']).size().unstack(fill_value=0)
+
+inactive_exited = churn_counts.loc[0, 1]
+inactive_total = churn_counts.loc[0, 0] + churn_counts.loc[0, 1]
+
+active_exited = churn_counts.loc[1, 1]
+active_total = churn_counts.loc[1, 0] + churn_counts.loc[1, 1]
+
+count = np.array([inactive_exited, active_exited])
+nobs = np.array([inactive_total, active_total])
+
+z_statistic, p_value = proportions_ztest(count, nobs)
+
+print("=== Resultado do Teste de Hipótese ===")
+print(f"Z-Statistic: {z_statistic:.4f}")
+print(f"P-value: {p_value:.4f}")
+
+alpha = 0.05
+if p_value < alpha:
+    print(f"\nCom um p-value ({p_value:.4f}) menor que o nível de significância ({alpha}), rejeitamos a hipótese nula.")
+    print("Há evidências estatísticas significativas de que a proporção de clientes que saem do banco é diferente entre clientes inativos e ativos.")
+    print("Especificamente, parece que clientes inativos têm uma tendência maior a sair do banco.")
+else:
+    print(f"\nCom um p-value ({p_value:.4f}) maior que o nível de significância ({alpha}), não rejeitamos a hipótese nula.")
+    print("Não há evidências estatísticas significativas para afirmar que a proporção de clientes que saem do banco é diferente entre clientes inativos e ativos.")
+
+
+churn_rate_by_activity = df.groupby('IsActiveMember')['Exited'].mean().reset_index()
+
+churn_rate_by_activity['IsActiveMember'] = churn_rate_by_activity['IsActiveMember'].map({0: 'Inativo', 1: 'Ativo'})
+#!!!!!!!!!!!!!!!!!!!!!!!!!Análise Preditiva!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
 
 # ITS A BEAUTIFUL DAY FOR PIE
 
+#!!!!!!!!!!!!!REGRESSAO LINEAR MULTIPLA!!!!!!!!!!!!!
 
 
 
