@@ -381,7 +381,23 @@ churn_rate_by_activity = df.groupby('IsActiveMember')['Exited'].mean().reset_ind
 
 churn_rate_by_activity['IsActiveMember'] = churn_rate_by_activity['IsActiveMember'].map({0: 'Inativo', 1: 'Ativo'})
 #!!!!!!!!!!!!!!!!!!!!!!!!!Análise Preditiva!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+X_simple = df[['Age']]
+y = df['Exited']
 
+X_train_s, X_test_s, y_train_s, y_test_s = train_test_split(
+    X_simple, y, test_size=0.2, random_state=42
+)
+
+model_simple = LinearRegression()
+model_simple.fit(X_train_s, y_train_s)
+
+y_pred_s = model_simple.predict(X_test_s)
+
+rmse_simple = sqrt(mean_squared_error(y_test_s, y_pred_s))
+print(f"RMSE da Regressão Simples (Age → Exited): {rmse_simple:.4f}")
+
+print(f"Intercepto: {model_simple.intercept_}")
+print(f"Coeficiente de Age: {model_simple.coef_[0]}")
 
 
 
